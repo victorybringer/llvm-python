@@ -6,6 +6,8 @@ from KFunction import *
 from KBlock import * 
 from graphviz import *
 from KOperand import *
+from pydot import *
+import re
 llvm.initialize()
 llvm.initialize_native_target()
 llvm.initialize_native_asmprinter()
@@ -280,7 +282,20 @@ def analysisFunction(kfunction):
 analysisFunction(kfunctions[0])
 
 
+s=llvm.get_function_cfg(kfunctions[1].valueref)
 
+dotG = graph_from_dot_data(s)[0]
+
+
+
+for each_node in dotG.get_nodes():
+       
+        for each_attr_key, each_attr_val in each_node.get_attributes().items():
+           if(each_attr_key == "label"):
+
+            print ((
+              each_attr_val[2:4],re.findall(r"label %\d{1}", each_attr_val)))
+      
 
 
 llvm.shutdown()
