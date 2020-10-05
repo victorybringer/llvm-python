@@ -1,45 +1,27 @@
-instructions=
+from pydot import *
+from llvmlite import binding as llvm
+from z3 import * 
+from KInstruction import *
+from KModule import *
+from KFunction import * 
+from KBlock import * 
+from graphviz import *
+from KOperand import *
+llvm.initialize()
+llvm.initialize_native_target()
+llvm.initialize_native_asmprinter()
+import os
 
-name1 = str(instructions[0]).split("=")[0]
-type1 = instructions[0].opcode
+os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm divide3.c -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll -mem2reg -S -o output.ll")
 
+ir = ""
 
-oper1= instructions[0].operands
-operands1=[]
+#clang-8  -emit-llvm divide3.c -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll -mem2reg -S -o output.ll
 
-for x in oper1:
- operands1.append(x)
-
-
-
-
-name2 = str(instructions[1]).split("=")[0]
-type2 = instructions[1].opcode
-
-
-oper2= instructions[1].operands
-operands2=[]
-
-for x in oper2:
- operands2.append(x)
+with open("/libx32/llvmlite/output.ll", "r") as f:  
+    ir = f.read() 
 
 
+print (ir)
 
-
-
-k1 = KInstruction(name1,type1,operands1)
-k2 = KInstruction(name2,type2,operands2)
-
-
-divzerocheck(k2)
-
-
-x = Int(str(operands1[0]).split(" ")[1])
-y = int (str(operands1[1]).split(" ")[1])
-s = Solver()
-
-
-s.add(x+y== 0)
-
-s.check()
 

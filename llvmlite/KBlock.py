@@ -3,7 +3,7 @@
 class KBlock:
      
    function=""
-   
+   name=""
    instructions=[]
    blockconstraint=[]
    valueref=""
@@ -13,4 +13,4 @@ class KBlock:
       self. instructions=i
     
       self.valueref =  valueref
- 
+     

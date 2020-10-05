@@ -4,6 +4,9 @@
 
 int g(int x) {
 
+  
+ 
+
  int z =x+9;
 
  int t =x-7+z;
@@ -11,9 +14,11 @@ int g(int x) {
 
  x = z+2*t ;
 
- int y = 100/(x+12);
+ int y = 100-(x+12);
 
-return y;
+if(y > -1) {
+  int z = 100 / y;
+}
 
 }
 
@@ -21,10 +26,17 @@ return y;
 
 int main (int x){
 
+int y=x+3;
 
-if(x<0)
+if(y>5 || y<0)
 
-g(x);
+y=y+2;
 
+else
+
+y=y-5;
+
+
+g(y);
 
 }

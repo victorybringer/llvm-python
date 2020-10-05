@@ -5,9 +5,10 @@ class KModule:
   functions=[]
 
 
-  def __init__(self, g, f):
+  def __init__(self, g,f):
       self.global_variables=g
-      self. functions=f
+      self.functions=f
+      
     
    
  
