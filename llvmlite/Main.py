@@ -14,7 +14,7 @@ llvm.initialize_native_asmprinter()
 import os
 
 os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm divide3.c -g -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll -mem2reg -S -o output.ll")
-
+#os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm test2.cpp -g -S -o test2.ll -Xclang -disable-O0-optnone && opt-8 test2.ll -mem2reg -S -o test2.ll")
 ir = ""
 
 #clang-8  -emit-llvm divide3.c -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll -mem2reg -S -o output.ll
@@ -143,7 +143,7 @@ def indexOf (list,x):
 
 
 
-def findoriginexpr (koperand):   
+def findoriginexpr (koperand,analysispath):   
   
   if(isArgument(koperand) ):
     
@@ -166,17 +166,38 @@ def findoriginexpr (koperand):
        koperand1 =operands[0]
        koperand2 = operands[1]
  
-     if(opcode =="add"):
-         return (findoriginexpr(koperand1) + findoriginexpr(koperand2)) 
-     if(opcode =="sub"):
-         return (findoriginexpr(koperand1) - findoriginexpr(koperand2))
-     if(opcode =="mul"):
-         return (findoriginexpr(koperand1) * findoriginexpr(koperand2))
-     if(opcode =="sdiv"):
-         return (findoriginexpr(koperand1) /findoriginexpr(koperand2)) 
-     
-    
+       if(opcode =="add"):
+         return (findoriginexpr(koperand1,analysispath) + findoriginexpr(koperand2,analysispath)) 
+       if(opcode =="sub"):
+         return (findoriginexpr(koperand1,analysispath) - findoriginexpr(koperand2,analysispath))
+       if(opcode =="mul"):
+         return (findoriginexpr(koperand1,analysispath) * findoriginexpr(koperand2,analysispath))
+       if(opcode =="sdiv"):
+         return (findoriginexpr(koperand1,analysispath) /findoriginexpr(koperand2,analysispath))
+       if(opcode =="phi"):
+         lastblockname = analysispath[len(analysispath)-2]
+         blocks= instruction.block.function.blocks
+         s1 = str(koperand1.valueref)
+         s2 = str(koperand2.valueref)
+         lastblock=""
+         for x in blocks:
+          if(x.name == lastblockname):
+             lastblock = x
 
+         for x in lastblock.instructions:
+          if(str(x.valueref) == s1):
+            return  findoriginexpr(koperand1,analysispath) 
+             
+          if(str(x.valueref) == s2):
+            return  findoriginexpr(koperand2,analysispath)  
+           
+     if(len(operands) == 1):       #一元运算表达式
+       koperand1 =operands[0]
+      
+ 
+       if(opcode =="load"):
+         return findoriginexpr(koperand1,analysispath) 
+      
 
   
    
@@ -219,8 +240,6 @@ for i in range(len(kfunctions)):
   for j in range(len(kfunctions[i].blocks)):
 
    kblocks.append(KBlock(kfunctions[i],getListfromIter(kfunctions[i].blocks[j].instructions),kfunctions[i].blocks[j]))
-
-
 
 
 for i in range(len(kfunctions)):
@@ -305,32 +324,56 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
   for x in filter :
 
-    if (x.type == "sdiv") :
+    if (x.type == "sdiv" or x.type == "srem" ) :
            
            operand = x.operands[1] #分母
       
          
-           expr = findoriginexpr(operand)
-          
+           expr = findoriginexpr(operand,analysispath)
+           
+           
            s = Solver()
      
            s.add( expr ==0)
-           if(constraint !=None):
+           if(len(constraint) !=0):
             for t in constraint:
              
              s.add(t)
            s.check()
            if str(s.check())=='sat' :
              print("发现除零错")
-             print (expr)
+           
              metadata=re.findall(r"!\d+", str(x.valueref))[0]
              locationdata =re.findall(metadata+r".+", ir)[0]
              print("发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
              print("得到反例")
              print(s.model())
-
-            
+#验证一下phi的路径敏感
+    if (x.type == "phi") :  
+        
+         koperand1 =x.operands[0]
+         koperand2 = x.operands[1] 
+         lastblockname = analysispath[len(analysispath)-2]
+         blocks= x.block.function.blocks
+         s1 = str(koperand1.valueref)
+         s2 = str(koperand2.valueref)
+         expr = ""
+         lastblock=""
+         for x in blocks:
+          if(x.name == lastblockname):
+             lastblock = x
+          
+         for y in lastblock.instructions:
          
+          if(str(y.valueref) == s1):
+            expr=  findoriginexpr(koperand1,analysispath)
+            break   
+          if(str(y.valueref) == s2):
+            expr=  findoriginexpr(koperand2,analysispath)
+            break
+
+         print(expr) 
+      
 
   last = filter[len(filter)-1]
  
@@ -364,16 +407,24 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
       for x in constraint:
        falseconstraint.append(x)
 
-      if(str(condition.valueref).index("sgt") >=0):  #有符号数大于 signed greater than
-       trueexpr = findoriginexpr(condition.operands[0]) - findoriginexpr(condition.operands[1]) > 0
+      if(len(re.findall(r"sgt", str(condition.valueref)))!=0):  #有符号数大于 signed greater than
+       trueexpr = findoriginexpr(condition.operands[0],analysispath) - findoriginexpr(condition.operands[1],analysispath) > 0
        trueconstraint.append(trueexpr) 
        IntraproceduralAnalysis(trueblock,truepath,trueconstraint)
 
-       falseexpr= findoriginexpr(condition.operands[0]) - findoriginexpr(condition.operands[1]) <= 0 
+       falseexpr= findoriginexpr(condition.operands[0],analysispath) - findoriginexpr(condition.operands[1],analysispath) <= 0 
        falseconstraint.append(falseexpr) 
        IntraproceduralAnalysis(falseblock,falsepath,falseconstraint)
       
-      
+      if(len(re.findall(r"slt", str(condition.valueref)))!=0):  #有符号数小于 signed less than
+       trueexpr = findoriginexpr(condition.operands[0],analysispath) - findoriginexpr(condition.operands[1],analysispath) < 0
+       trueconstraint.append(trueexpr) 
+       IntraproceduralAnalysis(trueblock,truepath,trueconstraint)
+
+       falseexpr= findoriginexpr(condition.operands[0],analysispath) - findoriginexpr(condition.operands[1],analysispath) >= 0 
+       falseconstraint.append(falseexpr) 
+       IntraproceduralAnalysis(falseblock,falsepath,falseconstraint)
+   
 
   if (last.type == "ret"):
      print(analysispath)  
@@ -383,9 +434,9 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
 set_blocknames (kfunctions[0])
 
+#print((kfunctions[0].blocks[4].instructions[0].operands[0].valueref))
 
-
-IntraproceduralAnalysis(kfunctions[0].blocks[0],[kfunctions[0].blocks[0].name],[1>0])
+IntraproceduralAnalysis(kfunctions[0].blocks[0],[kfunctions[0].blocks[0].name],[])
 
 
 
