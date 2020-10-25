@@ -1,42 +1,82 @@
 
 
-
-
-int g(int x) {
-
-  
- 
-
- int z =x+9;
-
- int t =x-7+z;
-
-
- x = z+2*t ;
-
- int y = 100-(x+12);
-
-if(y > -1) {
-  int z = 100 / y;
-}
+void fun2(int x){
+	int arr[3]={1,1,1};
+	
+	for(int i=0;i<4;i++)
+	{
+	printf("%d",arr[i]);
+	}
 
 }
 
 
+void nullreference(){
+	int *p = 2;
+    p=0;
+	int q = *p;
+}
 
-int main (int x){
+int g(int x,int n) {
 
-int y=x+3;
+  x=x+1; 
 
-if(y>5 || y<0)
+  int q =x+n; 
 
-y=y+2;
+
+
+
+ int z =q+9;  
+
+ int t =x-7+z;  
+
+
+ x = z+2*t ;  
+
+ int y = 100-(x+12); 
+
+if(y > -1 || y == -3) {
+   
+   z = 100 / (y-n);
+}
 
 else
 
-y=y-5;
+  z = y+5;
+return z;  
+
+}
 
 
-g(y);
 
+int loop (){
+  
+int i=0;
+
+while(i<8){
+
+
+
+i++;
+
+
+}
+
+
+
+
+
+}
+
+
+
+
+
+
+
+int t (int x){
+
+int *p;
+p=0;
+int q = *p;
 }
