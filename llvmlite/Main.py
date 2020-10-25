@@ -13,7 +13,7 @@ llvm.initialize_native_target()
 llvm.initialize_native_asmprinter()
 import os
 
-os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm divide3.c -g -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll   -gvn  -S -o output.ll")
+os.system("cd /libx32/llvmlite/ && clang-10  -emit-llvm divide3.c -g -S -o divide3.ll -Xclang -disable-O0-optnone && opt-10 divide3.ll    -gvn  -S -o output.ll")
 #os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm test2.cpp -g -S -o test2.ll -Xclang -disable-O0-optnone && opt-8 test2.ll -mem2reg -S -o test2.ll")
 ir = ""
 
@@ -25,8 +25,50 @@ with open("/libx32/llvmlite/output.ll", "r") as f:
 
 
 
-    
+def dbgcorrect(kinstruction):         # 貌似是一个bug,instruction 字符串返回的调试信息与实际不一致，经常造成定位行数与实际不符    
 
+   kfunction=str(kinstruction.block.function.valueref)
+   
+   blocks=kinstruction.block.function.blocks
+
+   
+   blockindex=-1
+   for x in range(len(blocks)):
+      if( blocks[x] == kinstruction.block):
+        blockindex=x  
+   
+   
+   
+   
+   instructions=kinstruction.block.instructions
+   
+
+
+
+
+
+   instructionindex=-1
+   for x in range(len(instructions)):
+      if(instructions[x] == kinstruction):
+        instructionindex=x  
+   
+
+   strs=kfunction.split("\n") #function字符串按行处理
+   
+   index=0
+   
+   for x in range(0,blockindex):
+   
+    index+=len(blocks[x].instructions)
+   
+   index+=2*(blockindex+1)
+
+   index+=instructionindex
+
+
+
+   return strs[index].split("!")[2]
+  
 
 def printlist (list):
  for x in list: 
@@ -130,8 +172,8 @@ def getArgumentSymbolMapfromIter (iter):
    dict = {}
    for x in iter :
      if(len(re.findall(r"i\d+",str(x)))>0):
-      #dict[str(x).split(" ")[1]] =BitVec(str(x).split(" ")[1],int(re.findall(r"i\d+",str(x))[0][1:]))
-      dict[str(x).split(" ")[1]] =Int(str(x).split(" ")[1])
+      dict[str(x).split(" ")[1]] =BitVec(str(x).split(" ")[1],int(re.findall(r"i\d+",str(x))[0][1:]))
+      #dict[str(x).split(" ")[1]] =Int(str(x).split(" ")[1])
    return (dict)   
 
 def indexOf (list,x):
@@ -148,7 +190,7 @@ def findmemorysize(koperand):  #溯源至内存时，提供内存的大小信息
 
    return size
 
-def findoriginexpr (koperand,analysispath,loopcounter):   #遇到循环时的回溯，要添加一个计数变量，默认仍是分析路径长度-2   
+def findoriginexpr (koperand,analysispath,loopcounter):   #要添加一个计数变量,表明当前指令在分析路径的哪个基本块内，尤其适用于循环时的多次回溯
   
   if(isArgument(koperand) ):
     
@@ -165,7 +207,7 @@ def findoriginexpr (koperand,analysispath,loopcounter):   #遇到循环时的回
      currentblock=instruction.block.name
      
      blocknumber = -1
-     for x in range (len(analysispath)-1):
+     for x in range (len(analysispath)):
           if (currentblock == analysispath[x] and x <=loopcounter):
 
                blocknumber=x
@@ -181,10 +223,6 @@ def findoriginexpr (koperand,analysispath,loopcounter):   #遇到循环时的回
          lastblockname = analysispath[loopcounter-1].split(" ")[1]   #loopcounter表明当前指令在处分析路径的哪个位置，初衷是解决循环问题
          expr=instruction.valueref
          
-         
-         
-         
-        
          
          p = re.compile(r'[[](.*?)[]]', re.S)
 
@@ -396,7 +434,7 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
            
            
            s = Solver()
-           print(expr)
+           #print(expr)
            s.add( expr ==0)
            if(len(constraint) !=0):
             for t in constraint:        #基本块跳转附加约束
@@ -404,13 +442,14 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
              s.add(t)
             s.check()
            if (str(s.check())=='sat') :
-             print("发现除零错")
-            
-             metadata=re.findall(r"!\d+", str(x.valueref))[0]
-           
+             #print("发现除零错")
+             
+             
+             #metadata=re.findall(r"!\d+", str(x.valueref))[0]
+             metadata="!"+dbgcorrect(x)
              locationdata =re.findall(metadata+r" =.+", ir)[0] 
-             print(locationdata)
-             print("发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
+           
+             print("发现除零错,发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
              print("得到反例")
              print(s.model())
 
@@ -426,21 +465,25 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
           s.add(t)
         s.check()     
       if (str(s.check())=='sat') :
-             print("发现数组下标越界")
             
-             metadata=re.findall(r"!\d+", str(x.valueref))[0]
+             
+             metadata="!"+dbgcorrect(x)
+             
+             
              locationdata =re.findall(metadata+r" =.+", ir)[0]
-             print("发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
+             
+             print("发现数组下标越界,发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
              #print("得到反例")
              #print(s.model()) 
     if (x.type == "load"  ) :     
        
       if (re.findall(r"null", str(x.operands[0].valueref))) :
-             print("发现空指针解引用")
+        
              
-             metadata=re.findall(r"!\d+", str(x.valueref))[0]
+             metadata="!"+dbgcorrect(x)
+             
              locationdata =re.findall(metadata+r" =.+", ir)[0]
-             print("发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
+             print("发现空指针解引用,发生在第"+re.findall(r"line: \d+", locationdata)[0].split(" ")[1]+"行，"+"第"+re.findall(r"column: \d+", locationdata)[0].split(" ")[1]+"列")
             
              #print("得到反例")
              #print(s.model()) 
@@ -500,7 +543,7 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
       for x in constraint:
        falseconstraint.append(x)
 
-
+      
       if(len(re.findall(r"slt", str(condition.valueref)))!=0):  #有符号数小于 signed less than
 
        trueexpr = findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) < 0
@@ -525,19 +568,22 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
 
        falseexpr= findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) >= 0 
+       
+       
+
        falseconstraint.append(falseexpr)       
-       print(findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1))
-       s = Solver() 
        print(falseconstraint)
+       s = Solver() 
+       
        for t in falseconstraint:       
              
         s.add(t)
 
        s.check()
-
+       
        if (str(s.check())=='sat') :
              
-             print("")
+            
              IntraproceduralAnalysis(falseblock,falsepath,falseconstraint)
 
       if(len(re.findall(r"sgt", str(condition.valueref)))!=0):  #有符号数大于 signed greater than
@@ -565,9 +611,9 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
        falseexpr= findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) <= 0 
        falseconstraint.append(falseexpr)       
-       print(findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1))
+       
        s = Solver() 
-       print(falseconstraint)
+       
        for t in falseconstraint:       
              
         s.add(t)
@@ -576,13 +622,13 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
        if (str(s.check())=='sat') :
              
-             print("")
+         
              IntraproceduralAnalysis(falseblock,falsepath,falseconstraint)
  
       if(len(re.findall(r"eq", str(condition.valueref)))!=0):  #等于 
        
-       print("okw")
-       trueexpr = findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) < 0
+     
+       trueexpr = findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) ==0
        trueconstraint.append(trueexpr) 
        
        s = Solver()
@@ -603,11 +649,10 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
 
 
-       falseexpr= findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) >= 0 
+       falseexpr= findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1) - findoriginexpr(condition.operands[1],analysispath,len(analysispath)-1) != 0 
        falseconstraint.append(falseexpr)       
-       print(findoriginexpr(condition.operands[0],analysispath,len(analysispath)-1))
        s = Solver() 
-       print(falseconstraint)
+       
        for t in falseconstraint:       
              
         s.add(t)
@@ -616,13 +661,13 @@ def IntraproceduralAnalysis(kblock,analysispath,constraint):   #过程内分析
 
        if (str(s.check())=='sat') :
              
-             print("")
+             
              IntraproceduralAnalysis(falseblock,falsepath,falseconstraint)
 
   
   if (last.type == "ret"):
-     
-     print(analysispath)  
+     print(analysispath)
+     return
 
 
 
@@ -633,7 +678,7 @@ for x in kfunctions:
 
 
 #for x in kfunctions:
- #if(len(x.blocks) >0):  
+# if(len(x.blocks) >0):  
 
   
   #IntraproceduralAnalysis(x.blocks[0],[x.blocks[0].name],[])
@@ -643,7 +688,7 @@ for x in kfunctions:
 #print(kfunctions[4].blocks[0].instructions[6].operands[0].valueref)
 
       
-IntraproceduralAnalysis(kfunctions[5].blocks[0],[kfunctions[5].blocks[0].name],[])     
+IntraproceduralAnalysis(kfunctions[7].blocks[0],[kfunctions[7].blocks[0].name],[])     
        
 
 
