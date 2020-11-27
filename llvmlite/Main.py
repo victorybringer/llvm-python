@@ -16,13 +16,13 @@ llvm.initialize_native_asmprinter()
 import os
 import json
 
-os.system("cd /libx32/llvmlite/ && clang-10  -emit-llvm overflow.c -g -S -o overflow.c.ll ")
+os.system("cd /libx32/llvmlite/ && clang-10  -emit-llvm Divide_By_Zero_Test01.c -g -S -o Divide_By_Zero_Test01.c.ll ")
 #os.system("cd /libx32/llvmlite/ && clang-8  -emit-llvm test2.cpp -g -S -o test2.ll -Xclang -disable-O0-optnone && opt-8 test2.ll -mem2reg -S -o test2.ll")
 ir = ""
 
 #clang-8  -emit-llvm Divide_By_Zero_Test01.c -S -o divide3.ll -Xclang -disable-O0-optnone && opt-8 divide3.ll -mem2reg -S -o output.ll
 
-with open("/libx32/llvmlite/overflow.c.ll", "r") as f:  
+with open("/libx32/llvmlite/Divide_By_Zero_Test01.c.ll", "r") as f:  
     ir = f.read() 
 
 def isglobalsigned(globalvariable):
@@ -372,7 +372,7 @@ def findoriginexpr (koperand,analysispath,loopcounter,memory):   #要添加一�
          return (findoriginexpr(koperand1,analysispath,loopcounter,memory) * findoriginexpr(koperand2,analysispath,loopcounter,memory))
        #if(opcode =="shl"):
         # return (findoriginexpr(koperand1,analysispath,loopcounter,memory) * findoriginexpr(koperand2,analysispath,loopcounter,memory)*2)  
-       if(opcode =="sdiv"):
+       if(opcode =="sdiv" ):
          return (findoriginexpr(koperand1,analysispath,loopcounter,memory) / findoriginexpr(koperand2,analysispath,loopcounter,memory))
         
            
@@ -400,6 +400,7 @@ def findoriginexpr (koperand,analysispath,loopcounter,memory):   #要添加一�
        if(opcode =="trunc" ):
          large=int(str(instruction.valueref).strip().split(" ")[3][1:])
          small=int(str(instruction.valueref).strip().split(" ")[6][1:-1])
+         
          return Extract(large-1,small,findoriginexpr(koperand1,analysispath,loopcounter,memory))
         
        
@@ -609,8 +610,7 @@ def SymbolicExecution(kblock,analysispath,constraint,functionstack,callcollectio
              print(s.model())
     
              
-    
-            
+     
     
                   
     if (x.type == "mul" ) :
@@ -640,7 +640,7 @@ def SymbolicExecution(kblock,analysispath,constraint,functionstack,callcollectio
            
            expr =findoriginexpr(operand,analysispath,len(analysispath)-1,currentmemoryregion)
            
-           print(expr)
+          
           
            
            s = Solver()
@@ -663,7 +663,7 @@ def SymbolicExecution(kblock,analysispath,constraint,functionstack,callcollectio
              # print("得到反例")
              print(s.model())
              # print(functionstack)
-             return
+             
 
     if (x.type == "getelementptr"  ) :     
            
@@ -885,7 +885,21 @@ analysisFunction("main")
 print(m.global_variables)
 
 
+analysisFunction("BadCase01")
 
+analysisFunction("BadCase02")
+
+analysisFunction("BadCase03")
+
+
+analysisFunction("BadCase04")
+
+analysisFunction("BadCase05")
+
+analysisFunction("BadCase06")
+
+analysisFunction("BadCase07")
+analysisFunction("BadCase08")
 
 
 
